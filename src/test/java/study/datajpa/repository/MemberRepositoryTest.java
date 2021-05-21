@@ -5,6 +5,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Slice;
 import org.springframework.data.domain.Sort;
 import org.springframework.test.annotation.Rollback;
 import org.springframework.transaction.annotation.Transactional;
@@ -12,6 +13,8 @@ import study.datajpa.dto.MemberDto;
 import study.datajpa.entity.Member;
 import study.datajpa.entity.Team;
 
+import javax.persistence.EntityManager;
+import javax.persistence.PersistenceContext;
 import java.lang.reflect.Array;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -27,6 +30,8 @@ public class MemberRepositoryTest {
 
     @Autowired MemberRepository memberRepository;
     @Autowired TeamRepository teamRepository;
+    @PersistenceContext
+    EntityManager em;
 
     @Test
     public void testMember() {
@@ -170,7 +175,7 @@ public class MemberRepositoryTest {
 
     //페이징 조건과 정렬 조건 설정
     @Test
-    public void page() throws Exception {
+    public void paging() {
         //given
         memberRepository.save(new Member("member1", 10));
         memberRepository.save(new Member("member2", 10));
@@ -181,6 +186,9 @@ public class MemberRepositoryTest {
         //when
         PageRequest pageRequest = PageRequest.of(0, 3, Sort.by(Sort.Direction.DESC, "username")); //현재 페이지, 조회할 데이터 수, 정렬 정보를 입력
         Page<Member> page = memberRepository.findByAge(10, pageRequest);
+        //Slice<Member> slice = memberRepository.findByAge(10, pageRequest); //Slice는 totalElement, totalPage count 쿼리 계산하지 않음
+
+        Page<MemberDto> memberDtos = page.map(m -> new MemberDto(m.getId(), m.getUsername(), null)); //페이징할때도 엔티티로 반환 금지! dto로 변환할 것
 
         //then
         List<Member> content = page.getContent(); //조회된 데이터
@@ -192,4 +200,69 @@ public class MemberRepositoryTest {
         assertThat(page.hasNext()).isTrue(); //다음 페이지가 있는가?
     }
 
+    @Test
+    public void bulkUpdate() {
+        //given
+        memberRepository.save(new Member("member1", 10));
+        memberRepository.save(new Member("member2", 19));
+        memberRepository.save(new Member("member3", 20));
+        memberRepository.save(new Member("member4", 21));
+        memberRepository.save(new Member("member5", 40));
+
+        //when
+        int resultCount = memberRepository.bulkAgePlus(20);
+        //em.clear(); 또는 clear true 설정 //벌크 연산 이후 끝내거나, 영속성 컨텍스트를 초기화시켜주기
+
+        //JPA에서 벌크 연산 주의!!
+        //영속성 컨텍스트를 무시하고 DB로 바로 날리는 것
+        List<Member> result = memberRepository.findByUsername("member5");
+        Member member5 = result.get(0);
+        System.out.println("member5 = " + member5); //clear하지 않으면 40살로 찍힌다, DB에는 41살, 영속성 컨텍스트에는 40살이었던 상태..
+
+        //then
+        assertThat(resultCount).isEqualTo(3);
+    }
+
+    @Test
+    public void findMemberLazy() {
+        //given
+        Team teamA = new Team("teamA");
+        Team teamB = new Team("teamB");
+        teamRepository.save(teamA);
+        teamRepository.save(teamB);
+
+        Member member1 = new Member("member1", 10, teamA);
+        Member member2 = new Member("member2", 10, teamB);
+        memberRepository.save(member1);
+        memberRepository.save(member2);
+
+        em.flush();
+        em.clear();
+
+        //when N + 1
+        //select Member 1
+        //List<Member> members = memberRepository.findMemberFetchJoin();
+        List<Member> members = memberRepository.findAll();
+
+        for (Member member : members) {
+            System.out.println("member = " + member.getUsername());
+            System.out.println("member.teamClass = " + member.getTeam().getClass()); //class study.datajpa.entity.Team
+            System.out.println("member.team = " + member.getTeam().getName());
+        }
+    }
+
+    @Test
+    public void queryHint() {
+        //given
+        Member member1 = memberRepository.save(new Member("member1", 10));
+        memberRepository.save(member1);
+        em.flush();
+        em.clear();
+
+        //when
+        Member findMember = memberRepository.findReadOnlyByUsername("member1"); //readOnly라서
+        findMember.setUsername("member2"); //update 안됨
+
+        em.flush();
+    }
 }

@@ -2,12 +2,13 @@ package study.datajpa.repository;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.jpa.repository.*;
 import org.springframework.data.repository.query.Param;
 import study.datajpa.dto.MemberDto;
 import study.datajpa.entity.Member;
 
+import javax.persistence.LockModeType;
+import javax.persistence.QueryHint;
 import java.util.List;
 import java.util.Optional;
 
@@ -39,5 +40,32 @@ public interface MemberRepository extends JpaRepository<Member, Long> { //@Repos
     Member findMemberByUsername(String username); //단건
     Optional<Member> findOptionalByUsername(String username); //단건 Optional
 
+    // @Query(value = "select m from Member m left join m.team t", countQuery = "select count(m.username) from Member m") //쿼리가 복잡해지면 카운트 쿼리도 복잡해짐, 쿼리 분리해주기
+    @Query(value = "select m from Member m")
     Page<Member> findByAge(int age, Pageable pageable); //Pageable은 인터페이스. 실제 사용할 때는 해당 인터페이스를 구현한 PageRequest를 사용함
+    //Slice<Member> findByAge(int age, Pageable pageable); //Pageable은 인터페이스. 실제 사용할 때는 해당 인터페이스를 구현한 PageRequest를 사용함
+
+    @Modifying(clearAutomatically = true) //꼭 Modifying 붙여줘야 함!, clear true로 설정하면 벌크 연산 후 자동으로 clear해줌!!
+    @Query("update Member m set m.age = m.age + 1 where m.age >= :age")
+    int bulkAgePlus(@Param("age") int age);
+
+    @Query("select m from Member m left join fetch m.team") //Member를 조회할 때 연관된 team을 함께 가져옴, team의 모든 값도 채움
+    List<Member> findMemberFetchJoin();
+
+    @Override
+    @EntityGraph(attributePaths = {"team"})
+    List<Member> findAll();
+
+    @EntityGraph(attributePaths = {"team"})
+    @Query("select m from Member m")
+    List<Member> findMemberEntityGraph();
+
+    @EntityGraph(attributePaths = {"team"})
+    List<Member> findEntityGraphByUsername(@Param("username") String username);
+
+    @QueryHints(value = @QueryHint(name = "org.hibernate.readOnly", value = "true"))
+    Member findReadOnlyByUsername(String username);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    List<Member> findLockByUsername(String username);
 }
