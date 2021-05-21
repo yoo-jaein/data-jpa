@@ -15,4 +15,4 @@ public class MemberRepositoryImpl implements MemberRepositoryCustom { //Impl 이
         return em.createQuery("select m from Member m")
                 .getResultList();
     }
-}//엔티티를 생성, 변경할 때 변경한 사람과 시간을 추적하고 싶으면? Auditing
+}

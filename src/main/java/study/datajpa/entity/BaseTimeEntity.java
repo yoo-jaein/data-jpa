@@ -10,7 +10,7 @@ import javax.persistence.EntityListeners;
 import javax.persistence.MappedSuperclass;
 import java.time.LocalDateTime;
 
-@EntityListeners(AuditingEntityListener.class)
+@EntityListeners(AuditingEntityListener.class) //엔티티를 생성, 변경할 때 변경한 사람과 시간을 추적하고 싶으면? Auditing
 @MappedSuperclass
 @Getter
 public class BaseTimeEntity {
