@@ -12,7 +12,8 @@ import javax.persistence.QueryHint;
 import java.util.List;
 import java.util.Optional;
 
-public interface MemberRepository extends JpaRepository<Member, Long> { //@Repository 생략 가능
+//@Repository 생략 가능
+public interface MemberRepository extends JpaRepository<Member, Long> , MemberRepositoryCustom {
 
     //https://docs.spring.io/spring-data/jpa/docs/current/reference/html/#jpa.query-methods.query-creation
     //https://docs.spring.io/spring-data/jpa/docs/current/reference/html/#repositories.query-methods.query-creation
